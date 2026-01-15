@@ -256,6 +256,33 @@
       outline: none;
       border-color: #667eea;
     }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: #667eea;
+      background: #f0f0ff;
+      border: 1px solid #667eea;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-left: 8px;
+    }
+    .download-btn:hover {
+      background: #667eea;
+      color: white;
+    }
+    .download-btn:active {
+      transform: scale(0.95);
+    }
+    .turn-assistant .turn-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
     audio {
       display: none;
     }
@@ -395,10 +422,17 @@
       }
 
       historyEmpty.style.display = 'none';
-      const html = conversationHistory.map(turn => {
+      const html = conversationHistory.map((turn, index) => {
         const emotionClass = `emotion-${turn.userEmotion || 'neutral'}`;
         const emotionText = getEmotionText(turn.userEmotion || 'neutral');
         const time = new Date(turn.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        
+        // 生成下载链接（如果有时间戳）
+        let downloadBtn = '';
+        if (turn.audioTimestamp && currentUserId) {
+          const downloadUrl = `${SERVER_URL.replace('/api/voice-chat', '/api/download-audio')}?user_id=${encodeURIComponent(currentUserId)}&timestamp=${turn.audioTimestamp}`;
+          downloadBtn = `<a href="${downloadUrl}" class="download-btn" download>⬇️ 下载音频</a>`;
+        }
         
         return `
           <div class="turn-item">
@@ -410,7 +444,10 @@
               <div class="turn-text">${escapeHtml(turn.userText || '（未识别到文本）')}</div>
             </div>
             <div class="turn-assistant">
-              <div class="turn-label">助手 ${time}</div>
+              <div class="turn-label">
+                <span>助手 ${time}</span>
+                ${downloadBtn}
+              </div>
               <div class="turn-text">${escapeHtml(turn.assistantReply || '（无回复）')}</div>
             </div>
           </div>
@@ -536,7 +573,8 @@
           userText: data.user_text || '（未识别到文本）',
           userEmotion: data.user_emotion || 'neutral',
           assistantReply: data.assistant_reply || '（无回复）',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          audioTimestamp: data.timestamp || null  // 保存音频时间戳，用于下载
         };
         
         conversationHistory.push(turn);

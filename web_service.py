@@ -331,11 +331,62 @@ async def voice_chat(
             "user_emotion": result["user_emotion"],
             "assistant_reply": result["assistant_reply"],
             "assistant_emotion": result["assistant_emotion"],
+            "timestamp": timestamp,  # 返回时间戳，用于下载音频
         })
 
     except Exception as e:
         print("[错误] /api/voice-chat 处理失败：", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/download-audio")
+async def download_audio(
+    user_id: str,
+    timestamp: int
+):
+    """
+    下载指定对话的音频文件
+    
+    请求参数：
+    - user_id: 用户ID（必填）
+    - timestamp: 时间戳（必填，Unix时间戳）
+    
+    返回：
+    - WAV 音频文件，文件名格式：对话_用户ID_时间戳.wav
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id 参数不能为空")
+    
+    if timestamp is None or timestamp <= 0:
+        raise HTTPException(status_code=400, detail="timestamp 参数无效，必须为正整数")
+    
+    # 验证用户ID格式
+    if not (user_id.startswith("user_") or user_id == "anonymous"):
+        raise HTTPException(status_code=400, detail=f"无效的用户ID格式: {user_id}")
+    
+    try:
+        # 获取用户TTS输出目录
+        user_tts_dir = get_user_tts_dir(user_id)
+        
+        # 构建音频文件路径（后端存储的文件名格式）
+        audio_file_path = user_tts_dir / f"tts_neutral_{timestamp}.wav"
+        
+        if not audio_file_path.exists():
+            raise HTTPException(status_code=404, detail=f"音频文件不存在: {audio_file_path}")
+        
+        # 生成下载文件名：对话_用户ID_时间戳.wav
+        download_filename = f"对话_{user_id}_{timestamp}.wav"
+        
+        return FileResponse(
+            path=str(audio_file_path),
+            filename=download_filename,
+            media_type="audio/wav"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[错误] 下载音频失败：user_id={user_id}, timestamp={timestamp}, error={e}")
+        raise HTTPException(status_code=500, detail=f"下载音频失败: {str(e)}")
 
 
 @app.delete("/api/clear-history")
