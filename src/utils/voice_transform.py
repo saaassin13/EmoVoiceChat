@@ -42,4 +42,6 @@ if __name__ == "__main__":
     # # 示例3：FLAC（无损）转WAV
     # convert_audio("input.flac", "output.wav")
 
-    convert_audio("src/data/input_voice/angry.m4a", "src/data/input_voice/angry.wav")
+    convert_audio(
+        "/home/yanlan/workspace/code/emo-voice-chat/src/data/input_voice/qinche_long.m4a", 
+        "/home/yanlan/workspace/code/emo-voice-chat/src/data/input_voice/qinche_long.wav")

@@ -11,7 +11,7 @@ from src.context import ConversationHistory
 from src.ser.schemas import EmotionLabel
 
 # 1. 初始化对话历史
-history_manager = ConversationHistory()
+history_manager = ConversationHistory(user_id="test")
 
 # 2. 配置并初始化 LLM
 llm_config = LLMConfig()
@@ -21,9 +21,9 @@ llm_engine = LLMEngine(llm_config)
 
 # 3. 生成回复
 # user_text = "今天一点也不开心,工作也不顺利,代码也写的不好！"
-user_text = "今天我想出去玩,你陪我把！"
-# user_emotion = EmotionLabel.NEUTRAL
-user_emotion = EmotionLabel.HAPPY
+user_text = "接下来你说话的语气都调整为生气，并且语气要严厉一点"
+user_emotion = EmotionLabel.NEUTRAL
+# user_emotion = EmotionLabel.HAPPY
 history = history_manager.get_recent_turns()
 
 reply = llm_engine.generate_reply(

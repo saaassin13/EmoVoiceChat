@@ -231,6 +231,31 @@
     .clear-btn:active {
       background: #e0e0e0;
     }
+    .speaker-selector {
+      margin-bottom: 12px;
+    }
+    .speaker-selector label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .speaker-selector select {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      color: #333;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .speaker-selector select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
     audio {
       display: none;
     }
@@ -278,6 +303,14 @@
         <div class="recognition-result-label">识别结果</div>
         <div class="recognition-result-text" id="recognitionText"></div>
       </div>
+      <div class="speaker-selector">
+        <label for="speakerSelect">🎙️ 选择声音：</label>
+        <select id="speakerSelect">
+          <option value="开发者">开发者</option>
+          <option value="秦彻">秦彻</option>
+          <option value="马保国">马保国</option>
+        </select>
+      </div>
       <div class="button-group">
         <button class="record-btn" id="recordBtn">开始录音</button>
         <button class="clear-btn" id="clearBtn">清除</button>
@@ -301,6 +334,7 @@
     const recognitionResult = document.getElementById('recognitionResult');
     const recognitionText = document.getElementById('recognitionText');
     const userIdDisplay = document.getElementById('userIdDisplay');
+    const speakerSelect = document.getElementById('speakerSelect');
 
     let mediaRecorder = null;
     let audioChunks = [];
@@ -309,12 +343,20 @@
     let recordingTimer = null;
     let currentUserId = null;
     let conversationHistory = [];
+    let currentSpeaker = '开发者';
 
     // 从localStorage加载用户ID和历史记录
     function loadUserData() {
       currentUserId = localStorage.getItem('userId');
       if (currentUserId) {
         userIdDisplay.textContent = currentUserId;
+      }
+      
+      // 加载声音选择
+      const savedSpeaker = localStorage.getItem('selectedSpeaker');
+      if (savedSpeaker) {
+        currentSpeaker = savedSpeaker;
+        speakerSelect.value = savedSpeaker;
       }
       
       const savedHistory = localStorage.getItem('conversationHistory');
@@ -334,8 +376,15 @@
       if (currentUserId) {
         localStorage.setItem('userId', currentUserId);
       }
+      localStorage.setItem('selectedSpeaker', currentSpeaker);
       localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
     }
+    
+    // 监听声音选择变化
+    speakerSelect.addEventListener('change', (e) => {
+      currentSpeaker = e.target.value;
+      saveUserData();
+    });
 
     // 渲染对话历史
     function renderHistory() {
@@ -444,6 +493,9 @@
         if (currentUserId) {
           formData.append('user_id', currentUserId);
         }
+        
+        // 发送选择的声音
+        formData.append('speaker', currentSpeaker);
 
         const res = await fetch(SERVER_URL, {
           method: 'POST',

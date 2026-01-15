@@ -49,8 +49,35 @@ except RuntimeError as e:
     print("[错误] 初始化引擎失败：", e)
     raise
 
-default_speaker_wav = os.path.join(ROOT_DIR, "src/data/input_voice/happy.wav")
-speaker_wav = default_speaker_wav if Path(default_speaker_wav).exists() else None
+
+SPEAKER_WAV_MAP = {
+    "开发者": os.path.join(ROOT_DIR, "src/data/input_voice/me.wav"),
+    "秦彻": os.path.join(ROOT_DIR, "src/data/input_voice/qinche.wav"),
+    "马保国": os.path.join(ROOT_DIR, "src/data/input_voice/mabaoguo.wav"),
+}
+
+
+def get_speaker_wav_path(speaker_name: str = "开发者") -> Optional[str]:
+    """
+    根据声音名称获取对应的 wav 文件路径
+    
+    :param speaker_name: 声音名称（"开发者"、"秦彻"、"马保国"）
+    :return: wav 文件路径，如果不存在则返回 None
+    """
+    if speaker_name not in SPEAKER_WAV_MAP:
+        print(f"警告：未知的声音名称 '{speaker_name}'，使用默认'开发者'")
+        speaker_name = "开发者"
+    
+    wav_path = SPEAKER_WAV_MAP.get(speaker_name)
+    if wav_path and Path(wav_path).exists():
+        return wav_path
+    else:
+        print(f"警告：声音文件不存在 '{wav_path}'，使用默认'开发者'")
+        # 回退到默认的开发者声音
+        default_path = SPEAKER_WAV_MAP.get("开发者")
+        if default_path and Path(default_path).exists():
+            return default_path
+        return None
 
 
 # ====== 用户ID生成和管理 ======
@@ -198,10 +225,34 @@ def index():
     return FileResponse(str(index_path))
 
 
+@app.get("/api/speakers")
+def get_speakers():
+    """
+    获取可用的声音选项列表
+    
+    返回：
+    - JSON 格式的响应，包含所有可用的声音选项
+    """
+    speakers = []
+    for name, path in SPEAKER_WAV_MAP.items():
+        exists = Path(path).exists()
+        speakers.append({
+            "name": name,
+            "path": path,
+            "available": exists
+        })
+    
+    return JSONResponse({
+        "speakers": speakers,
+        "default": "开发者"
+    })
+
+
 @app.post("/api/voice-chat")
 async def voice_chat(
     file: UploadFile = File(...),
-    user_id: Optional[str] = Form(None)
+    user_id: Optional[str] = Form(None),
+    speaker: Optional[str] = Form("开发者")
 ):
     """
     接收前端上传的一句话语音，返回 JSON 格式的响应，包含：
@@ -215,6 +266,7 @@ async def voice_chat(
     请求参数：
     - file: 音频文件（multipart/form-data）
     - user_id: 用户ID（可选，如果不提供则自动生成）
+    - speaker: 声音选择（可选，默认为"开发者"，可选值："开发者"、"秦彻"、"马保国"）
     
     返回：
     - JSON 格式的响应，包含音频和识别结果
@@ -222,10 +274,13 @@ async def voice_chat(
     # 1. 获取或生成用户ID
     final_user_id = get_or_create_user_id(user_id)
     
-    # 2. 根据用户ID创建对话历史管理器
+    # 2. 获取选择的声音文件路径
+    speaker_wav_path = get_speaker_wav_path(speaker or "开发者")
+    
+    # 3. 根据用户ID创建对话历史管理器
     history = ConversationHistory(user_id=final_user_id)
     
-    # 3. 获取用户输入目录
+    # 4. 获取用户输入目录
     user_input_dir = get_user_input_dir(final_user_id)
     
     suffix = Path(file.filename).suffix or ".webm"
@@ -259,7 +314,7 @@ async def voice_chat(
             llm=llm,
             tts=tts,
             history=history,
-            speaker_wav=speaker_wav,
+            speaker_wav=speaker_wav_path,  # 使用用户选择的声音
             tts_output_path=str(tts_output_path),  # 传入指定的输出路径
         )
 
