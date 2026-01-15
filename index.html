@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>情绪语音聊天</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 16px;
+      overflow: hidden;
+    }
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 24px;
+      margin: 0 0 8px 0;
+      font-weight: 600;
+    }
+    .header .user-id {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .history-container {
+      flex: 1;
+      overflow-y: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      min-height: 0;
+    }
+    .history-empty {
+      text-align: center;
+      color: #999;
+      padding: 40px 20px;
+      font-size: 14px;
+    }
+    .turn-item {
+      margin-bottom: 16px;
+      animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .turn-user {
+      margin-bottom: 12px;
+    }
+    .turn-label {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .emotion-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .emotion-happy { background: #fff3cd; color: #856404; }
+    .emotion-sad { background: #d1ecf1; color: #0c5460; }
+    .emotion-angry { background: #f8d7da; color: #721c24; }
+    .emotion-neutral { background: #e2e3e5; color: #383d41; }
+    .turn-text {
+      background: #f5f5f5;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .turn-user .turn-text {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+    .turn-assistant .turn-text {
+      background: #f3e5f5;
+      border-left: 3px solid #9c27b0;
+    }
+    .recording-area {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 16px;
+    }
+    .recording-status {
+      text-align: center;
+      margin-bottom: 16px;
+      min-height: 24px;
+    }
+    .recording-status.recording {
+      color: #e53935;
+      font-weight: 500;
+    }
+    .recording-status.processing {
+      color: #1976d2;
+    }
+    .recording-status.playing {
+      color: #388e3c;
+    }
+    .recording-status.error {
+      color: #d32f2f;
+    }
+    .waveform {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      height: 40px;
+      margin-bottom: 12px;
+    }
+    .waveform.hidden {
+      display: none;
+    }
+    .wave-bar {
+      width: 4px;
+      background: #667eea;
+      border-radius: 2px;
+      animation: wave 1s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0s; height: 20px; }
+    .wave-bar:nth-child(2) { animation-delay: 0.1s; height: 30px; }
+    .wave-bar:nth-child(3) { animation-delay: 0.2s; height: 40px; }
+    .wave-bar:nth-child(4) { animation-delay: 0.3s; height: 35px; }
+    .wave-bar:nth-child(5) { animation-delay: 0.4s; height: 25px; }
+    .wave-bar:nth-child(6) { animation-delay: 0.5s; height: 30px; }
+    .wave-bar:nth-child(7) { animation-delay: 0.6s; height: 20px; }
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.5); opacity: 0.7; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+    .recording-time {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: #e53935;
+      margin-bottom: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .recording-time.hidden {
+      display: none;
+    }
+    .recognition-result {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+    .recognition-result.hidden {
+      display: none;
+    }
+    .recognition-result-label {
+      font-weight: 600;
+      color: #856404;
+      margin-bottom: 4px;
+    }
+    .recognition-result-text {
+      color: #856404;
+      word-break: break-word;
+    }
+    .button-group {
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      flex: 1;
+      padding: 16px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .record-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .record-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .record-btn.recording {
+      background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.7); }
+      50% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); }
+    }
+    .clear-btn {
+      background: #f5f5f5;
+      color: #666;
+      border: 1px solid #ddd;
+      flex: 0 0 auto;
+      padding: 16px 20px;
+    }
+    .clear-btn:active {
+      background: #e0e0e0;
+    }
+    audio {
+      display: none;
+    }
+    /* 滚动条样式 */
+    .history-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    .history-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    .history-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+    .history-container::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎤 情绪语音聊天</h1>
+      <div class="user-id">用户ID: <span id="userIdDisplay">-</span></div>
+    </div>
+
+    <div class="history-container" id="historyContainer">
+      <div class="history-empty" id="historyEmpty">暂无对话记录，点击下方按钮开始对话</div>
+    </div>
+
+    <div class="recording-area">
+      <div class="recording-status" id="statusText"></div>
+      <div class="waveform hidden" id="waveform">
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+      </div>
+      <div class="recording-time hidden" id="recordingTime">00:00</div>
+      <div class="recognition-result hidden" id="recognitionResult">
+        <div class="recognition-result-label">识别结果</div>
+        <div class="recognition-result-text" id="recognitionText"></div>
+      </div>
+      <div class="button-group">
+        <button class="record-btn" id="recordBtn">开始录音</button>
+        <button class="clear-btn" id="clearBtn">清除</button>
+      </div>
+    </div>
+
+    <audio id="replyAudio"></audio>
+  </div>
+
+  <script>
+    const SERVER_URL = 'http://10.224.120.242:8001/api/voice-chat';
+
+    const recordBtn = document.getElementById('recordBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusText = document.getElementById('statusText');
+    const replyAudio = document.getElementById('replyAudio');
+    const historyContainer = document.getElementById('historyContainer');
+    const historyEmpty = document.getElementById('historyEmpty');
+    const waveform = document.getElementById('waveform');
+    const recordingTime = document.getElementById('recordingTime');
+    const recognitionResult = document.getElementById('recognitionResult');
+    const recognitionText = document.getElementById('recognitionText');
+    const userIdDisplay = document.getElementById('userIdDisplay');
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = 0;
+    let recordingTimer = null;
+    let currentUserId = null;
+    let conversationHistory = [];
+
+    // 从localStorage加载用户ID和历史记录
+    function loadUserData() {
+      currentUserId = localStorage.getItem('userId');
+      if (currentUserId) {
+        userIdDisplay.textContent = currentUserId;
+      }
+      
+      const savedHistory = localStorage.getItem('conversationHistory');
+      if (savedHistory) {
+        try {
+          conversationHistory = JSON.parse(savedHistory);
+          renderHistory();
+        } catch (e) {
+          console.error('加载历史记录失败:', e);
+          conversationHistory = [];
+        }
+      }
+    }
+
+    // 保存用户ID和历史记录
+    function saveUserData() {
+      if (currentUserId) {
+        localStorage.setItem('userId', currentUserId);
+      }
+      localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+    }
+
+    // 渲染对话历史
+    function renderHistory() {
+      if (conversationHistory.length === 0) {
+        historyEmpty.style.display = 'block';
+        historyContainer.innerHTML = '<div class="history-empty">暂无对话记录，点击下方按钮开始对话</div>';
+        return;
+      }
+
+      historyEmpty.style.display = 'none';
+      const html = conversationHistory.map(turn => {
+        const emotionClass = `emotion-${turn.userEmotion || 'neutral'}`;
+        const emotionText = getEmotionText(turn.userEmotion || 'neutral');
+        const time = new Date(turn.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        
+        return `
+          <div class="turn-item">
+            <div class="turn-user">
+              <div class="turn-label">
+                用户 ${time}
+                ${turn.userEmotion ? `<span class="emotion-badge ${emotionClass}">${emotionText}</span>` : ''}
+              </div>
+              <div class="turn-text">${escapeHtml(turn.userText || '（未识别到文本）')}</div>
+            </div>
+            <div class="turn-assistant">
+              <div class="turn-label">助手 ${time}</div>
+              <div class="turn-text">${escapeHtml(turn.assistantReply || '（无回复）')}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      historyContainer.innerHTML = html;
+      // 滚动到底部
+      historyContainer.scrollTop = historyContainer.scrollHeight;
+    }
+
+    function getEmotionText(emotion) {
+      const map = {
+        'happy': '😊 开心',
+        'sad': '😢 悲伤',
+        'angry': '😠 愤怒',
+        'neutral': '😐 中性'
+      };
+      return map[emotion] || '😐 中性';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 更新录音时长
+    function updateRecordingTime() {
+      if (!isRecording) return;
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const seconds = (elapsed % 60).toString().padStart(2, '0');
+      recordingTime.textContent = `${minutes}:${seconds}`;
+    }
+
+    // 开始录音计时
+    function startRecordingTimer() {
+      recordingStartTime = Date.now();
+      recordingTimer = setInterval(updateRecordingTime, 100);
+    }
+
+    // 停止录音计时
+    function stopRecordingTimer() {
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        recordingTimer = null;
+      }
+      recordingTime.classList.add('hidden');
+      recordingTime.textContent = '00:00';
+    }
+
+    async function initMedia() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = onRecordingStop;
+    }
+
+    async function onRecordingStop() {
+      statusText.textContent = '正在处理...';
+      statusText.className = 'recording-status processing';
+      waveform.classList.add('hidden');
+      stopRecordingTimer();
+      
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      audioChunks = [];
+
+      try {
+        const formData = new FormData();
+        formData.append('file', blob, 'input.webm');
+        
+        // 如果已有用户ID，发送给后端
+        if (currentUserId) {
+          formData.append('user_id', currentUserId);
+        }
+
+        const res = await fetch(SERVER_URL, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          throw new Error('服务返回错误：' + res.status + ' ' + res.statusText);
+        }
+
+        const data = await res.json();
+
+        // 更新用户ID
+        if (data.user_id && data.user_id !== currentUserId) {
+          currentUserId = data.user_id;
+          userIdDisplay.textContent = currentUserId;
+          saveUserData();
+        }
+
+        // 显示识别结果
+        if (data.user_text) {
+          const emotionLabel = getEmotionText(data.user_emotion || 'neutral');
+          recognitionText.innerHTML = `<strong>文本：</strong>${escapeHtml(data.user_text)}<br><strong>情绪：</strong>${emotionLabel}`;
+          recognitionResult.classList.remove('hidden');
+        } else {
+          recognitionResult.classList.add('hidden');
+        }
+
+        // 解码 base64 音频
+        const audioBytes = Uint8Array.from(atob(data.audio_base64), c => c.charCodeAt(0));
+        const audioBlob = new Blob([audioBytes], { type: 'audio/wav' });
+        const url = URL.createObjectURL(audioBlob);
+
+        replyAudio.src = url;
+        
+        // 添加一轮对话到历史
+        const turn = {
+          userText: data.user_text || '（未识别到文本）',
+          userEmotion: data.user_emotion || 'neutral',
+          assistantReply: data.assistant_reply || '（无回复）',
+          timestamp: new Date().toISOString()
+        };
+        
+        conversationHistory.push(turn);
+        saveUserData();
+        renderHistory();
+
+        statusText.textContent = '正在播放回复...';
+        statusText.className = 'recording-status playing';
+        
+        replyAudio.play().then(() => {
+          replyAudio.onended = () => {
+            statusText.textContent = '';
+            statusText.className = 'recording-status';
+            recordBtn.disabled = false;
+            recordBtn.textContent = '开始录音';
+            recordBtn.classList.remove('recording');
+            isRecording = false;
+          };
+        }).catch((err) => {
+          console.error('播放失败:', err);
+          statusText.textContent = '播放失败，请手动点击音频播放';
+          statusText.className = 'recording-status error';
+          recordBtn.disabled = false;
+          recordBtn.textContent = '开始录音';
+          recordBtn.classList.remove('recording');
+          isRecording = false;
+        });
+
+      } catch (err) {
+        console.error(err);
+        statusText.textContent = '请求失败：' + err.message;
+        statusText.className = 'recording-status error';
+        recognitionResult.classList.add('hidden');
+        recordBtn.disabled = false;
+        recordBtn.textContent = '开始录音';
+        recordBtn.classList.remove('recording');
+        isRecording = false;
+      }
+    }
+
+    recordBtn.addEventListener('click', async () => {
+      if (!mediaRecorder) {
+        try {
+          await initMedia();
+        } catch (err) {
+          console.error(err);
+          statusText.textContent = '无法访问麦克风：' + err.message;
+          statusText.className = 'recording-status error';
+          return;
+        }
+      }
+
+      if (!isRecording) {
+        // 开始录音
+        audioChunks = [];
+        recognitionResult.classList.add('hidden');
+        mediaRecorder.start();
+        isRecording = true;
+        recordBtn.textContent = '停止录音';
+        recordBtn.classList.add('recording');
+        statusText.textContent = '录音中，请说话...';
+        statusText.className = 'recording-status recording';
+        waveform.classList.remove('hidden');
+        recordingTime.classList.remove('hidden');
+        startRecordingTimer();
+      } else {
+        // 停止录音并触发上传
+        recordBtn.disabled = true;
+        mediaRecorder.stop();
+      }
+    });
+
+    clearBtn.addEventListener('click', async () => {
+      if (!currentUserId) {
+        alert('没有用户ID，无法清除历史记录');
+        return;
+      }
+      
+      if (confirm('确定要清除所有对话记录吗？这将删除服务器上的所有数据。')) {
+        try {
+          const formData = new FormData();
+          formData.append('user_id', currentUserId);
+          
+          const res = await fetch(`${SERVER_URL.replace('/api/voice-chat', '/api/clear-history')}`, {
+            method: 'DELETE',
+            body: formData,
+          });
+          
+          if (!res.ok) {
+            throw new Error('清除失败：' + res.status + ' ' + res.statusText);
+          }
+          
+          const data = await res.json();
+          
+          // 清除前端本地存储
+          conversationHistory = [];
+          saveUserData();
+          renderHistory();
+          
+          statusText.textContent = '已清除所有数据';
+          statusText.className = 'recording-status';
+          setTimeout(() => {
+            statusText.textContent = '';
+            statusText.className = 'recording-status';
+          }, 2000);
+        } catch (err) {
+          console.error('清除历史失败:', err);
+          alert('清除历史失败：' + err.message);
+        }
+      }
+    });
+
+
+    // 页面加载时初始化
+    loadUserData();
+  </script>
+</body>
+</html>
